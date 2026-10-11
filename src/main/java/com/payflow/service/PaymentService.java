@@ -1,10 +1,10 @@
 
+
 package com.payflow.service;
 
 import com.payflow.entity.LedgerEntry;
 import com.payflow.entity.Payment;
 import com.payflow.repository.PaymentRepository;
-import com.payflow.service.LedgerService;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,12 +55,9 @@ public class PaymentService {
                     "Unsupported currency: " + normalizedCurrency);
         }
 
-        // Step 1: Save the payment.
-        Payment payment =
-                paymentRepository.save(
-                        new Payment(amount, normalizedCurrency));
+        Payment payment = paymentRepository.save(
+                new Payment(amount, normalizedCurrency));
 
-        // Step 2: Create matching debit and credit entries.
         List<LedgerEntry> entries = List.of(
                 new LedgerEntry(
                         payment.getId(),
@@ -74,17 +71,42 @@ public class PaymentService {
                         normalizedCurrency)
         );
 
-        // Step 3: Validate and record the balanced ledger entries.
-        ledgerService.recordTransaction(
-                payment.getId(), entries);
+        ledgerService.recordTransaction(payment.getId(), entries);
 
         return payment;
     }
 
+    @Transactional
+    public Payment processPayment(UUID id) {
+        Payment payment = getPayment(id);
+
+        payment.markProcessing();
+
+        return paymentRepository.save(payment);
+    }
+
+    @Transactional
+    public Payment succeedPayment(UUID id) {
+        Payment payment = getPayment(id);
+
+        payment.markSucceeded();
+
+        return paymentRepository.save(payment);
+    }
+
+    @Transactional
+    public Payment failPayment(UUID id) {
+        Payment payment = getPayment(id);
+
+        payment.markFailed();
+
+        return paymentRepository.save(payment);
+    }
+
+    @Transactional(readOnly = true)
     public Payment getPayment(UUID id) {
         return paymentRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Payment not found: " + id));
     }
 }
-

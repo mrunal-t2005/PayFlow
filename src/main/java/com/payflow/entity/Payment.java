@@ -1,5 +1,4 @@
 
-
 package com.payflow.entity;
 
 import jakarta.persistence.*;
@@ -56,4 +55,36 @@ public class Payment {
     public Instant getCreatedAt() {
         return createdAt;
     }
+
+    public void markProcessing() {
+        if (!"PENDING".equals(this.status)) {
+            throw new IllegalStateException(
+                    "Only PENDING payments can be processed."
+            );
+        }
+
+        this.status = "PROCESSING";
+    }
+
+    public void markSucceeded() {
+        if (!"PROCESSING".equals(this.status)) {
+            throw new IllegalStateException(
+                    "Only PROCESSING payments can succeed."
+            );
+        }
+
+        this.status = "SUCCEEDED";
+    }
+
+    public void markFailed() {
+        if (!"PROCESSING".equals(this.status)) {
+            throw new IllegalStateException(
+                    "Only PROCESSING payments can fail."
+            );
+        }
+
+        this.status = "FAILED";
+    }
 }
+
+
