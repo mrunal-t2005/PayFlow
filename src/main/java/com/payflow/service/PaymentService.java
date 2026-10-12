@@ -28,53 +28,87 @@ public class PaymentService {
         this.ledgerService = ledgerService;
     }
 
-    @Transactional
-    public Payment createPayment(
-            BigDecimal amount,
-            String currencyCode) {
+    
+@Transactional
+public Payment createPayment(
+        BigDecimal amount,
+        String currencyCode,
+        String idempotencyKey) {
 
-        if (amount == null ||
-                amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException(
-                    "Payment amount must be greater than zero");
+    if (idempotencyKey == null || idempotencyKey.isBlank()) {
+        throw new IllegalArgumentException(
+                "Idempotency key is required");
+    }
+
+    idempotencyKey = idempotencyKey.trim();
+
+    if (idempotencyKey.length() > 100) {
+        throw new IllegalArgumentException(
+                "Idempotency key must not exceed 100 characters");
+    }
+
+    if (amount == null ||
+            amount.compareTo(BigDecimal.ZERO) <= 0) {
+        throw new IllegalArgumentException(
+                "Payment amount must be greater than zero");
+    }
+
+    if (currencyCode == null ||
+            !currencyCode.matches("[A-Za-z]{3}")) {
+        throw new IllegalArgumentException(
+                "Currency must be a valid three-letter currency code");
+    }
+
+    String normalizedCurrency =
+            currencyCode.toUpperCase(Locale.ROOT);
+
+    try {
+        Currency.getInstance(normalizedCurrency);
+    } catch (IllegalArgumentException ex) {
+        throw new IllegalArgumentException(
+                "Unsupported currency: " + normalizedCurrency);
+    }
+
+    var existingPayment =
+            paymentRepository.findByIdempotencyKey(idempotencyKey);
+
+    if (existingPayment.isPresent()) {
+        Payment payment = existingPayment.get();
+
+        boolean sameAmount =
+                payment.getAmount().compareTo(amount) == 0;
+
+        boolean sameCurrency =
+                payment.getCurrency().equals(normalizedCurrency);
+
+        if (!sameAmount || !sameCurrency) {
+            throw new IllegalStateException(
+                    "Idempotency key has already been used with different payment details");
         }
-
-        if (currencyCode == null ||
-                !currencyCode.matches("[A-Za-z]{3}")) {
-            throw new IllegalArgumentException(
-                    "Currency must be a valid three-letter currency code");
-        }
-
-        String normalizedCurrency =
-                currencyCode.toUpperCase(Locale.ROOT);
-
-        try {
-            Currency.getInstance(normalizedCurrency);
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException(
-                    "Unsupported currency: " + normalizedCurrency);
-        }
-
-        Payment payment = paymentRepository.save(
-                new Payment(amount, normalizedCurrency));
-
-        List<LedgerEntry> entries = List.of(
-                new LedgerEntry(
-                        payment.getId(),
-                        amount,
-                        LedgerEntry.EntryType.DEBIT,
-                        normalizedCurrency),
-                new LedgerEntry(
-                        payment.getId(),
-                        amount,
-                        LedgerEntry.EntryType.CREDIT,
-                        normalizedCurrency)
-        );
-
-        ledgerService.recordTransaction(payment.getId(), entries);
 
         return payment;
     }
+
+    Payment payment = paymentRepository.save(
+            new Payment(amount, normalizedCurrency, idempotencyKey));
+
+    List<LedgerEntry> entries = List.of(
+            new LedgerEntry(
+                    payment.getId(),
+                    amount,
+                    LedgerEntry.EntryType.DEBIT,
+                    normalizedCurrency),
+            new LedgerEntry(
+                    payment.getId(),
+                    amount,
+                    LedgerEntry.EntryType.CREDIT,
+                    normalizedCurrency)
+    );
+
+    ledgerService.recordTransaction(payment.getId(), entries);
+
+    return payment;
+}
 
     @Transactional
     public Payment processPayment(UUID id) {

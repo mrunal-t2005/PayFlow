@@ -1,5 +1,4 @@
 
-
 package com.payflow.controller;
 
 import com.payflow.entity.Payment;
@@ -24,11 +23,13 @@ public class PaymentController {
 
     @PostMapping
     public ResponseEntity<Payment> createPayment(
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestBody CreatePaymentRequest request) {
 
         Payment payment = paymentService.createPayment(
                 request.amount(),
-                request.currency()
+                request.currency(),
+                idempotencyKey
         );
 
         return ResponseEntity
@@ -72,3 +73,5 @@ public class PaymentController {
             String currency
     ) {}
 }
+
+

@@ -12,9 +12,10 @@ class PaymentStateTests {
 
     private Payment createPayment() {
         return new Payment(
-                new BigDecimal("250.00"),
-                "INR"
-        );
+        new BigDecimal("250.00"),
+        "INR",
+        "test-payment-key"
+);
     }
 
     @Test

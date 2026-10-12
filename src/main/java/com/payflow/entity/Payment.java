@@ -14,6 +14,9 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+   @Column(nullable = false, unique = true, updatable = false, length = 100)
+   private String idempotencyKey; 
+
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
@@ -29,13 +32,13 @@ public class Payment {
     protected Payment() {
     }
 
-    public Payment(BigDecimal amount, String currency) {
-        this.amount = amount;
-        this.currency = currency;
-        this.status = "PENDING";
-        this.createdAt = Instant.now();
-    }
-
+    public Payment(BigDecimal amount, String currency, String idempotencyKey) {
+    this.amount = amount;
+    this.currency = currency;
+    this.idempotencyKey = idempotencyKey;
+    this.status = "PENDING";
+    this.createdAt = Instant.now();
+}
     public UUID getId() {
         return id;
     }
@@ -56,6 +59,9 @@ public class Payment {
         return createdAt;
     }
 
+    public String getIdempotencyKey() {
+    return idempotencyKey;
+}
     public void markProcessing() {
         if (!"PENDING".equals(this.status)) {
             throw new IllegalStateException(
