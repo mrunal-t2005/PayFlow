@@ -2,7 +2,6 @@
 package com.payflow.service;
 
 import com.payflow.entity.LedgerEntry;
-
 import com.payflow.entity.Payment;
 import com.payflow.entity.Refund;
 import com.payflow.repository.PaymentRepository;
@@ -18,18 +17,19 @@ import java.util.UUID;
 
 @Service
 public class RefundService {
+
     private final LedgerService ledgerService;
     private final RefundRepository refundRepository;
     private final PaymentRepository paymentRepository;
 
     public RefundService(
-        RefundRepository refundRepository,
-        PaymentRepository paymentRepository,
-        LedgerService ledgerService) {
-    this.refundRepository = refundRepository;
-    this.paymentRepository = paymentRepository;
-    this.ledgerService = ledgerService;
-}
+            RefundRepository refundRepository,
+            PaymentRepository paymentRepository,
+            LedgerService ledgerService) {
+        this.refundRepository = refundRepository;
+        this.paymentRepository = paymentRepository;
+        this.ledgerService = ledgerService;
+    }
 
     @Transactional
     public Refund createRefund(
@@ -62,8 +62,10 @@ public class RefundService {
                 .orElse(null);
 
         if (existing != null) {
-            boolean samePayment = existing.getPaymentId().equals(paymentId);
-            boolean sameAmount = existing.getAmount().compareTo(amount) == 0;
+            boolean samePayment =
+                    existing.getPaymentId().equals(paymentId);
+            boolean sameAmount =
+                    existing.getAmount().compareTo(amount) == 0;
 
             if (!samePayment || !sameAmount) {
                 throw new IllegalStateException(
@@ -73,7 +75,8 @@ public class RefundService {
             return existing;
         }
 
-        Payment payment = paymentRepository.findById(paymentId)
+        // Lock the payment while checking the remaining refundable amount.
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
                                 "Payment not found: " + paymentId));
@@ -83,7 +86,8 @@ public class RefundService {
                     "Only succeeded payments can be refunded");
         }
 
-        List<Refund> refunds = refundRepository.findByPaymentId(paymentId);
+        List<Refund> refunds =
+                refundRepository.findByPaymentId(paymentId);
 
         BigDecimal alreadyRefunded = refunds.stream()
                 .filter(refund ->
@@ -91,14 +95,16 @@ public class RefundService {
                 .map(Refund::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal remaining = payment.getAmount().subtract(alreadyRefunded);
+        BigDecimal remaining =
+                payment.getAmount().subtract(alreadyRefunded);
 
         if (amount.compareTo(remaining) > 0) {
             throw new IllegalArgumentException(
                     "Refund exceeds remaining refundable amount: " + remaining);
         }
 
-        String currency = payment.getCurrency().toUpperCase(Locale.ROOT);
+        String currency =
+                payment.getCurrency().toUpperCase(Locale.ROOT);
 
         try {
             Currency.getInstance(currency);
@@ -110,10 +116,12 @@ public class RefundService {
         return refundRepository.save(
                 new Refund(paymentId, amount, currency, idempotencyKey));
     }
-    
+
     @Transactional
     public Refund processRefund(UUID refundId) {
-        Refund refund = refundRepository.findById(refundId)
+
+        // Lock the refund so concurrent requests cannot process it twice.
+        Refund refund = refundRepository.findByIdForUpdate(refundId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
                                 "Refund not found: " + refundId));
