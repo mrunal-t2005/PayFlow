@@ -136,7 +136,10 @@ public Payment createPayment(
 
         return paymentRepository.save(payment);
     }
-
+     @Transactional(readOnly = true)
+     public List<Payment> getAllPayments() {
+        return paymentRepository.findAll();
+}
     @Transactional(readOnly = true)
     public Payment getPayment(UUID id) {
         return paymentRepository.findById(id)

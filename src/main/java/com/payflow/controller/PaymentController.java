@@ -9,8 +9,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 
+@CrossOrigin(origins = {"http://localhost:5173","http://localhost:5174"})
 @RestController
 @RequestMapping("/api/payments")
 public class PaymentController {
@@ -35,6 +37,11 @@ public class PaymentController {
         return ResponseEntity
                 .created(URI.create("/api/payments/" + payment.getId()))
                 .body(payment);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Payment>> getAllPayments() {
+        return ResponseEntity.ok(paymentService.getAllPayments());
     }
 
     @GetMapping("/{id}")
@@ -73,5 +80,7 @@ public class PaymentController {
             String currency
     ) {}
 }
+
+
 
 
