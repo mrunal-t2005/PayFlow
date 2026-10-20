@@ -21,6 +21,8 @@ public class ApiExceptionHandler {
                 : "Invalid request";
 
         HttpStatus status = message.startsWith("Payment not found:")
+                || message.startsWith("Refund not found:")
+                || message.startsWith("Ledger entries not found:")
                 ? HttpStatus.NOT_FOUND
                 : HttpStatus.BAD_REQUEST;
 
@@ -34,9 +36,21 @@ public class ApiExceptionHandler {
 
         String message = ex.getMessage() != null
                 ? ex.getMessage()
-                : "Invalid payment state transition";
+                : "Invalid operation for the current state";
 
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("error", message));
     }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleUnexpectedError(
+            Exception ex) {
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of(
+                        "error",
+                        "An unexpected server error occurred"
+                ));
+    }
 }
+
